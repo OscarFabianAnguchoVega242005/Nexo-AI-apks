@@ -127,7 +127,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
 
   <header class="hero">
     <div>
-      <span class="badge"><i></i>Versión 1.0.0 · Android · 60 MB</span>
+      <span class="badge"><i></i><span id="badge-txt">Versión 1.0.0 · Android · 60 MB</span></span>
       <h1>Tu agenda, <span>más inteligente</span>.</h1>
       <p class="lead">Calendario, notas y recordatorios que te avisan aunque la app esté cerrada. Todo se sincroniza al instante entre tus dispositivos.</p>
       <div class="cta">
@@ -140,7 +140,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
           <span><small>Próximamente</small><b>iPhone (iOS)</b></span>
         </span>
       </div>
-      <div class="meta"><span>Gratis</span><span>Sin anuncios</span><span>Instalación en 1 minuto</span><span>APK de 60 MB</span></div>
+      <div class="meta"><span>Gratis</span><span>Sin anuncios</span><span>Instalación en 1 minuto</span><span id="size-txt">APK de 60 MB</span></div>
     </div>
 
     <div class="phone-wrap" aria-hidden="true">
@@ -233,6 +233,30 @@ function show(msg){toast.textContent=msg;toast.classList.add('show');clearTimeou
   if(APK_URL){a.href=APK_URL;a.setAttribute('download','NexoAI.apk')}
   else a.addEventListener('click',e=>{e.preventDefault();show('El APK aún no está enlazado a esta página.')});
 });
+
+/* Versión y tamaño: se leen del último release público de GitHub.
+   Si la consulta falla, se queda el texto que ya trae la página. */
+(function(){
+  const API="https://api.github.com/repos/OscarFabianAnguchoVega242005/Nexo-AI-apks/releases/latest";
+  function paint(r){
+    try{
+      const ver=String(r.tag_name||'').replace(/^[vV]/,'').trim();
+      const asset=(r.assets||[]).find(a=>a.name==='NexoAI.apk');
+      const mb=asset&&asset.size?Math.max(1,Math.round(asset.size/1e6)):0;
+      if(ver&&mb) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android · '+mb+' MB';
+      else if(ver) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android';
+      if(mb) document.getElementById('size-txt').textContent='APK de '+mb+' MB';
+    }catch(e){}
+  }
+  try{
+    const c=sessionStorage.getItem('nexo_rel');
+    if(c){paint(JSON.parse(c));return}
+  }catch(e){}
+  fetch(API,{headers:{Accept:'application/vnd.github+json'}})
+    .then(x=>x.ok?x.json():null)
+    .then(r=>{if(!r)return;paint(r);try{sessionStorage.setItem('nexo_rel',JSON.stringify({tag_name:r.tag_name,assets:(r.assets||[]).map(a=>({name:a.name,size:a.size}))}))}catch(e){}})
+    .catch(()=>{});
+})();
 </script>
 </body>
 </html>
