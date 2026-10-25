@@ -234,22 +234,74 @@ function show(msg){toast.textContent=msg;toast.classList.add('show');clearTimeou
   else a.addEventListener('click',e=>{e.preventDefault();show('El APK aún no está enlazado a esta página.')});
 });
 
-/* Versión y tamaño: se leen SIEMPRE del último release público de GitHub.
-   No se guarda nada en el navegador (sin caché propia). Si la consulta falla,
-   se queda un texto neutro, sin número de versión que pueda quedar viejo. */
+/* ===== Auto-actualización =====
+   1) Versión: consulta el último release público de GitHub cada ~90 s mientras
+      la pestaña está visible y al volver a verla. No consulta si está oculta.
+      Si GitHub responde 403/429 (límite de 60 consultas/hora por IP) o falla,
+      se queda el último valor bueno y espera más (retroceso hasta 15 min).
+   2) Contenido: cada ~3 min compara el index.html publicado con el que se abrió;
+      si cambió, recarga la página (el navegador conserva el scroll).
+   No se guarda nada en el navegador. */
 (function(){
-  try{sessionStorage.removeItem('nexo_rel')}catch(e){}
   const API="https://api.github.com/repos/OscarFabianAnguchoVega242005/Nexo-AI-apks/releases/latest";
-  fetch(API,{cache:'no-store',headers:{Accept:'application/vnd.github+json'}})
-    .then(x=>x.ok?x.json():null)
-    .then(r=>{
-      if(!r)return;
-      const ver=String(r.tag_name||'').replace(/^[vV]/,'').trim();
-      const asset=(r.assets||[]).find(a=>a.name==='NexoAI.apk');
-      const mb=asset&&asset.size?Math.max(1,Math.round(asset.size/1e6)):0;
-      if(ver) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android'+(mb?' · '+mb+' MB':'');
-    })
-    .catch(()=>{});
+  const POLL_MS=90*1000, HTML_MS=3*60*1000, MIN_GAP=30*1000, MAX_BACKOFF=15*60*1000;
+  const badge=document.getElementById('badge-txt');
+  let lastTry=0, backoff=0, timer=null, busy=false;
+
+  function paint(r){
+    const ver=String(r.tag_name||'').replace(/^[vV]/,'').trim();
+    if(!ver) return;
+    const asset=(r.assets||[]).find(a=>a.name==='NexoAI.apk');
+    const mb=asset&&asset.size?Math.max(1,Math.round(asset.size/1e6)):0;
+    const t='Versión '+ver+' · Android'+(mb?' · '+mb+' MB':'');
+    if(badge.textContent!==t) badge.textContent=t;
+  }
+  async function checkRelease(){
+    if(document.hidden||busy) return;
+    busy=true; lastTry=Date.now();
+    try{
+      const res=await fetch(API,{cache:'no-cache',headers:{Accept:'application/vnd.github+json'}});
+      if(res.status===403||res.status===429){
+        backoff=Math.min(MAX_BACKOFF,Math.max(5*60*1000,backoff*2));
+        const reset=+res.headers.get('x-ratelimit-reset');
+        if(reset) backoff=Math.min(MAX_BACKOFF,Math.max(backoff,reset*1000-Date.now()+2000));
+      }else if(res.ok){ backoff=0; paint(await res.json()); }
+      else backoff=Math.min(MAX_BACKOFF,Math.max(POLL_MS*2,backoff*2));
+    }catch(e){ backoff=Math.min(MAX_BACKOFF,Math.max(POLL_MS*2,backoff*2)); }
+    busy=false; schedule();
+  }
+  function schedule(){
+    clearTimeout(timer);
+    timer=setTimeout(checkRelease,(backoff||POLL_MS)*(0.9+Math.random()*0.2));
+  }
+
+  /* contenido del propio HTML */
+  let baseHash=null, htmlBusy=false;
+  async function pageHash(){
+    const res=await fetch(location.pathname,{cache:'no-store'});
+    if(!res.ok) throw new Error('http '+res.status);
+    const t=await res.text(); let h=5381;
+    for(let i=0;i<t.length;i++) h=((h<<5)+h+t.charCodeAt(i))|0;
+    return t.length+':'+h;
+  }
+  async function checkHtml(){
+    if(document.hidden||htmlBusy) return;
+    htmlBusy=true;
+    try{
+      const h=await pageHash();
+      if(baseHash===null) baseHash=h;
+      else if(h!==baseHash) location.reload();
+    }catch(e){}
+    htmlBusy=false;
+  }
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) return;
+    if(Date.now()-lastTry>=MIN_GAP) checkRelease(); else schedule();
+    checkHtml();
+  });
+  checkRelease(); checkHtml();
+  setInterval(checkHtml,HTML_MS);
 })();
 </script>
 </body>
