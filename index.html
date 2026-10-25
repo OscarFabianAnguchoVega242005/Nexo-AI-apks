@@ -58,7 +58,7 @@ h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text
 .s-h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:14px 0 8px}
 .ev{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px;font-size:13px}
 .ev .bar{width:4px;align-self:stretch;border-radius:4px;background:var(--grad)}
-.ev.mia .bar{background:var(--teal)}
+.ev.agent .bar{background:var(--teal)}
 .ev em{font-style:normal;display:block;font-size:11px;color:var(--mut)}
 .tag{margin-left:auto;font-size:10px;color:var(--teal);background:rgba(45,212,191,.12);padding:2px 7px;border-radius:99px}
 .note{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:12px;color:var(--mut)}
@@ -127,7 +127,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
 
   <header class="hero">
     <div>
-      <span class="badge"><i></i><span id="badge-txt">Versión 1.0.0 · Android · 60 MB</span></span>
+      <span class="badge"><i></i><span id="badge-txt">Android · Última versión</span></span>
       <h1>Tu agenda, <span>más inteligente</span>.</h1>
       <p class="lead">Calendario, notas y recordatorios que te avisan aunque la app esté cerrada. Todo se sincroniza al instante entre tus dispositivos.</p>
       <div class="cta">
@@ -140,7 +140,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
           <span><small>Próximamente</small><b>iPhone (iOS)</b></span>
         </span>
       </div>
-      <div class="meta"><span>Gratis</span><span>Sin anuncios</span><span>Instalación en 1 minuto</span><span id="size-txt">APK de 60 MB</span></div>
+      <div class="meta"><span>Gratis</span><span>Sin anuncios</span><span>Instalación en 1 minuto</span><span id="size-txt">APK listo para instalar</span></div>
     </div>
 
     <div class="phone-wrap" aria-hidden="true">
@@ -150,7 +150,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
         <div class="s-date">domingo, 25 de octubre</div>
         <div class="s-h">Próximos eventos</div>
         <div class="ev"><div class="bar"></div><div>Reunión con el equipo<em>10:30 · recordatorio 30 min</em></div></div>
-        <div class="ev mia"><div class="bar"></div><div>Entrega del informe<em>Mañana · 8:00</em></div><span class="tag">Mia</span></div>
+        <div class="ev agent"><div class="bar"></div><div>Entrega del informe<em>Mañana · 8:00</em></div><span class="tag">Agente</span></div>
         <div class="ev"><div class="bar"></div><div>Gimnasio<em>Cada lunes · 6:00</em></div></div>
         <div class="s-h">Notas fijadas</div>
         <div class="note"><b>Resumen del día</b>Tres eventos y una nota pendiente.</div>
@@ -168,7 +168,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
       <div class="card"><div class="ic">🔁</div><h3>Eventos que se repiten</h3><p>Crea rutinas diarias, semanales o mensuales una sola vez.</p></div>
       <div class="card"><div class="ic">📝</div><h3>Notas rápidas</h3><p>Buscador, notas fijadas y un editor que guarda solo al salir.</p></div>
       <div class="card"><div class="ic">⚡</div><h3>Sincronización en tiempo real</h3><p>Lo que cambias o agrega tu agente de Cue aparece al instante, sin pulsar nada.</p></div>
-      <div class="card"><div class="ic">✨</div><h3>Tu agente de Cue</h3><p>Tu agente de Cue, Mia, puede dejar notas y eventos por ti; los reconoces por su etiqueta turquesa.</p></div>
+      <div class="card"><div class="ic">✨</div><h3>Tu agente de Cue</h3><p>Tu agente de Cue puede dejar notas y eventos por ti; los reconoces por su etiqueta turquesa.</p></div>
     </div>
   </section>
 
@@ -234,27 +234,22 @@ function show(msg){toast.textContent=msg;toast.classList.add('show');clearTimeou
   else a.addEventListener('click',e=>{e.preventDefault();show('El APK aún no está enlazado a esta página.')});
 });
 
-/* Versión y tamaño: se leen del último release público de GitHub.
-   Si la consulta falla, se queda el texto que ya trae la página. */
+/* Versión y tamaño: se leen SIEMPRE del último release público de GitHub.
+   No se guarda nada en el navegador (sin caché propia). Si la consulta falla,
+   se queda un texto neutro, sin número de versión que pueda quedar viejo. */
 (function(){
+  try{sessionStorage.removeItem('nexo_rel')}catch(e){}
   const API="https://api.github.com/repos/OscarFabianAnguchoVega242005/Nexo-AI-apks/releases/latest";
-  function paint(r){
-    try{
+  fetch(API,{cache:'no-store',headers:{Accept:'application/vnd.github+json'}})
+    .then(x=>x.ok?x.json():null)
+    .then(r=>{
+      if(!r)return;
       const ver=String(r.tag_name||'').replace(/^[vV]/,'').trim();
       const asset=(r.assets||[]).find(a=>a.name==='NexoAI.apk');
       const mb=asset&&asset.size?Math.max(1,Math.round(asset.size/1e6)):0;
-      if(ver&&mb) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android · '+mb+' MB';
-      else if(ver) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android';
+      if(ver) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android'+(mb?' · '+mb+' MB':'');
       if(mb) document.getElementById('size-txt').textContent='APK de '+mb+' MB';
-    }catch(e){}
-  }
-  try{
-    const c=sessionStorage.getItem('nexo_rel');
-    if(c){paint(JSON.parse(c));return}
-  }catch(e){}
-  fetch(API,{headers:{Accept:'application/vnd.github+json'}})
-    .then(x=>x.ok?x.json():null)
-    .then(r=>{if(!r)return;paint(r);try{sessionStorage.setItem('nexo_rel',JSON.stringify({tag_name:r.tag_name,assets:(r.assets||[]).map(a=>({name:a.name,size:a.size}))}))}catch(e){}})
+    })
     .catch(()=>{});
 })();
 </script>
