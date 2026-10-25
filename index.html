@@ -140,7 +140,7 @@ footer .brand img{width:26px;height:26px;border-radius:8px}
           <span><small>Próximamente</small><b>iPhone (iOS)</b></span>
         </span>
       </div>
-      <div class="meta"><span>Gratis</span><span>Sin anuncios</span><span>Instalación en 1 minuto</span><span id="size-txt">APK listo para instalar</span></div>
+      <div class="meta"><span>Gratis</span><span>Sin anuncios</span><span>Instalación en 1 minuto</span></div>
     </div>
 
     <div class="phone-wrap" aria-hidden="true">
@@ -248,7 +248,6 @@ function show(msg){toast.textContent=msg;toast.classList.add('show');clearTimeou
       const asset=(r.assets||[]).find(a=>a.name==='NexoAI.apk');
       const mb=asset&&asset.size?Math.max(1,Math.round(asset.size/1e6)):0;
       if(ver) document.getElementById('badge-txt').textContent='Versión '+ver+' · Android'+(mb?' · '+mb+' MB':'');
-      if(mb) document.getElementById('size-txt').textContent='APK de '+mb+' MB';
     })
     .catch(()=>{});
 })();
