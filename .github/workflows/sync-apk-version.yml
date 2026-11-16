@@ -1,0 +1,65 @@
+name: Sync public version from APK
+
+on:
+  release:
+    types: [published, edited]
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-apk-release-version
+  cancel-in-progress: false
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install Android APK metadata tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y aapt
+
+      - name: Derive the release title from the latest APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          release_json="$(gh api "repos/$repo/releases/latest")"
+          release_id="$(jq -er '.id | numbers' <<<"$release_json")"
+          tag="$(jq -er '.tag_name | strings | select(length > 0)' <<<"$release_json")"
+          current_title="$(jq -r '.name // ""' <<<"$release_json")"
+
+          apk_dir="$RUNNER_TEMP/nexo-apk"
+          mkdir -p "$apk_dir"
+          gh release download "$tag" --repo "$repo" --pattern NexoAI.apk --dir "$apk_dir" --clobber
+          apk="$apk_dir/NexoAI.apk"
+          test -s "$apk"
+
+          badging="$(aapt dump badging "$apk" | sed -n '1p')"
+          package_name="$(sed -nE "s/^package: name='([^']+)'.*/\1/p" <<<"$badging")"
+          version_code="$(sed -nE "s/.*versionCode='([^']+)'.*/\1/p" <<<"$badging")"
+          version_name="$(sed -nE "s/.*versionName='([^']+)'.*/\1/p" <<<"$badging")"
+
+          if [[ "$package_name" != "com.oscar.nexo_ai" ]]; then
+            echo "::error::Unexpected APK package: ${package_name:-missing}"
+            exit 1
+          fi
+          if [[ ! "$version_name" =~ ^[0-9]+([.][0-9]+){1,3}$ || ! "$version_code" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not validate APK versionName/versionCode."
+            exit 1
+          fi
+
+          expected_title="Nexo AI $version_name"
+          echo "APK manifest: versionName=$version_name, versionCode=$version_code; release tag=$tag."
+          if [[ "$current_title" == "$expected_title" ]]; then
+            echo "Release title is already synchronized."
+          else
+            echo "Updating release title to '$expected_title' without changing tag '$tag'."
+            gh api --method PATCH "repos/$repo/releases/$release_id" -f "name=$expected_title" >/dev/null
+          fi

@@ -247,8 +247,10 @@ function show(msg){toast.textContent=msg;toast.classList.add('show');clearTimeou
   const badge=document.getElementById('badge-txt');
   let lastTry=0, backoff=0, timer=null, busy=false;
 
+  /* El título de la release se sincroniza con el manifiesto del APK por GitHub Actions. */
   function paint(r){
-    const ver=String(r.tag_name||'').replace(/^[vV]/,'').trim();
+    const titleVersion=String(r.name||'').match(/(?:^|\s)v?(\d+(?:\.\d+){1,3})\s*$/i);
+    const ver=titleVersion?titleVersion[1]:String(r.tag_name||'').replace(/^[vV]/,'').trim();
     if(!ver) return;
     const asset=(r.assets||[]).find(a=>a.name==='NexoAI.apk');
     const mb=asset&&asset.size?Math.max(1,Math.round(asset.size/1e6)):0;
